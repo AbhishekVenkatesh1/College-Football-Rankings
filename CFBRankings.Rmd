@@ -1,0 +1,158 @@
+---
+title: "CFBRankings"
+author: "Abhishek"
+date: "8/22/2017"
+output: html_document
+---
+```{r}
+# Loading necessary packages
+library(tidyverse)
+library(readxl)
+library(dplyr)
+library(stringr)
+# Loading schedule from online
+Schedule <- read_excel("2016Schedule.xlsx") # With ranked teams
+NewSchedule <- read_excel("2016Schedule1.xlsx") # Manually took out ranked teams
+```
+
+```{r}
+# Table with all winners
+Teams_Winner <- Schedule %>%
+  select(Winner) %>%
+  filter(Winner != "Winner")
+
+# Table with all losers
+Teams_Loser <- Schedule %>%
+  select(Loser) %>%
+  filter(Loser != "Loser")
+
+# Changing colname of losers to winner
+colnames(Teams_Loser)[colnames(Teams_Loser) == "Loser"] <- "Winner"
+
+# Combining Loser and Winner columns
+All_Teams <- rbind(Teams_Winner, Teams_Loser)
+
+# Creating unique teams table
+Unique_Teams <- unique(All_Teams)
+colnames(Unique_Teams)[1] <- "Teams"
+Unique_Teams
+```
+
+```{r}
+# Converting table to vector and removing parantheses and rankings from vector
+teams_vector <- as.vector(Unique_Teams$Teams, mode = "any")
+teams_vector <- str_replace_all(teams_vector, "[(0-9)]", "") # eliminate the ranks in parentheses
+teams_vector <- str_trim(teams_vector) # trim the extra white space
+teams_vector
+```
+
+```{r}
+# Adding the vector back to the table and adding column of elo
+Rank_Teams <- Unique_Teams %>%
+  mutate(teams_vector)
+Rank_Teams <- subset(Rank_Teams, select = -Teams)
+Rank_Teams <- unique(Rank_Teams)
+colnames(Rank_Teams)[colnames(Rank_Teams) == "teams_vector"] <- "Teams"
+Rank_Teams <- Rank_Teams %>%
+  mutate(Elo = 1500) %>%
+  arrange(Teams)
+Rank_Teams
+```
+
+```{r}
+# Changing winner column from Schedule table to vector and removing parantheses and rankings from winner vector
+teams_vector_winner <- as.vector(Schedule$Winner, mode = "any")
+teams_vector_winner <- str_replace_all(teams_vector_winner, "[(0-9)]", "")
+teams_vector_winner <- str_trim(teams_vector_winner)
+
+# Removing old winner column in Schedule and adding in the new winner column vector
+Schedule <- Schedule %>%
+  mutate(teams_vector_winner)
+Schedule <- subset(Schedule, select = -Winner)
+colnames(Schedule)[colnames(Schedule) == "teams_vector_winner"] <- "Winner"
+
+# Changing loser column from Schedule table to vector and removing parantheses and rankings from loser vector
+teams_vector_loser <- as.vector(Schedule$Loser, mode = "any")
+teams_vector_loser <- str_replace_all(teams_vector_loser, "[(0-9)]", "")
+teams_vector_loser <- str_trim(teams_vector_loser)
+
+# Removing old loser column in Schedule and adding in the new loser column vector
+Schedule <- Schedule %>%
+  mutate(teams_vector_loser)
+Schedule <- subset(Schedule, select = -Loser)
+colnames(Schedule)[colnames(Schedule) == "teams_vector_loser"] <- "Loser"
+Schedule
+```
+
+```{r}
+# Creating new Clean Schedule table with only the columns we need
+CleanSchedule <- Schedule %>%
+  select(Wk, Winner, Pts, X__1, Loser, Pts__1, Notes) %>%
+  filter(Wk != "Wk" & Pts != "Pts" & Pts__1 != "Pts")
+
+# Converting Table into Data Frame
+Rank_Teams_Data_Frame <- as.data.frame(Rank_Teams)
+```
+
+
+```{r}
+# Looping through every game in the Clean Schedule and displaying rankings each week after week 9 (it's after week 10 in the Clean Schedule because week 1 in the schedule is just one game)
+x <- 1
+while(x <= 873) {
+  PD <- as.numeric(CleanSchedule[x, "Pts"]) - as.numeric(CleanSchedule[x, "Pts__1"])
+  Winner <- as.character(CleanSchedule[x, "Winner"])
+  Loser <- as.character(CleanSchedule[x, "Loser"])
+  EloTableW <- Rank_Teams_Data_Frame %>%
+    filter(Teams == Winner)
+  ELOW <- as.numeric(EloTableW[1, "Elo"])
+  EloTableL <- Rank_Teams_Data_Frame %>%
+    filter(Teams == Loser)
+  ELOL <- as.numeric(EloTableL[1, "Elo"])
+  if (is.na(CleanSchedule[x, "X__1"]) == TRUE) {
+    ELOW <- ELOW + 75
+  } else {
+    ELOL <- ELOL + 75
+  }
+  ELODiff <- ELOW - ELOL
+  Margin <- log(abs(PD)+1) * (2.2/((ELOW-ELOL)*.001+2.2))
+  EloChange <- Margin*25
+  rownames(Rank_Teams_Data_Frame) <- Rank_Teams_Data_Frame$Teams
+  WinnerElo <- Rank_Teams_Data_Frame[Winner, "Elo"]
+  LoserElo <- Rank_Teams_Data_Frame[Loser, "Elo"]
+  Rank_Teams_Data_Frame[Winner, "Elo"] <- WinnerElo + EloChange
+  Rank_Teams_Data_Frame[Loser, "Elo"] <- LoserElo - EloChange
+  Rank_Teams_Data_Frame <- Rank_Teams_Data_Frame %>%
+    arrange(desc(Elo))
+  # Putting each table after week 9 into a variable
+  if (x == 569) {
+    Rank_Teams_Data_Frame_Week_10 <- head(Rank_Teams_Data_Frame, 25)
+  }
+  if (x == 630) {
+    Rank_Teams_Data_Frame_Week_11 <- head(Rank_Teams_Data_Frame, 25)
+  }
+  if (x == 689) {
+    Rank_Teams_Data_Frame_Week_12 <- head(Rank_Teams_Data_Frame, 25)
+  }
+  if (x == 754) {
+    Rank_Teams_Data_Frame_Week_13 <- head(Rank_Teams_Data_Frame, 25)
+  }
+  if (x == 815) {
+    Rank_Teams_Data_Frame_Week_14 <- head(Rank_Teams_Data_Frame, 25)
+  }
+  if (x == 832) {
+    Rank_Teams_Data_Frame_Week_15 <- head(Rank_Teams_Data_Frame, 25)
+  }
+  if (x == 873) {
+    Rank_Teams_Data_Frame_Final <- head(Rank_Teams_Data_Frame, 25)
+  }
+  x <- x + 1
+}
+
+Rank_Teams_Data_Frame_Week_10
+Rank_Teams_Data_Frame_Week_11
+Rank_Teams_Data_Frame_Week_12
+Rank_Teams_Data_Frame_Week_13
+Rank_Teams_Data_Frame_Week_14
+Rank_Teams_Data_Frame_Week_15
+Rank_Teams_Data_Frame_Final
+```
