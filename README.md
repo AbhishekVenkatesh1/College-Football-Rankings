@@ -1,5 +1,5 @@
 # College-Football-Rankings
-College football ranking system that uses specific elo formula to rank teams after various weeks in a schedule. 
+College football ranking system written in R that uses specific elo formula to rank teams after various weeks in a schedule. 
 
 
 Factors that go into the formula include multiplier constant, point differential, wins, losses, and whether team was home/away/neutral. 
